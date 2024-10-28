@@ -10,7 +10,10 @@ from .modules import ContrastiveLoss
 from .model import BaseModel
 
 
-class PWLayer(nn.Module):
+"""
+这个模块和那个B站视频中的线性处理基本一致，b站中实现的是Linear的混合专家模型
+"""
+class PWLayer(nn.Module):"""也就是所谓的一个专家"""
     """Single Parametric Whitening Layer
     """
     def __init__(self, input_size, output_size, dropout=0.0):
@@ -34,13 +37,19 @@ class MoEAdaptorLayer(nn.Module):
     """MoE-enhanced Adaptor
     """
     def __init__(self, n_exps, layers, dropout=0.0, noise=True):
+        """首先最基本的定义专家数量""""
         super(MoEAdaptorLayer, self).__init__()
 
         self.n_exps = n_exps
         self.noisy_gating = noise
-
+        """把所有的专家都放到这里，到时候用for循环进行获得对应的专家网络"""
         self.experts = nn.ModuleList([PWLayer(layers[0], layers[1], dropout) for i in range(n_exps)])
+         
+        """门控可以看到就是把输入放到几个专家中，这个layers[0]应该就是上一步获得的各种模态嵌入"""
+       
         self.w_gate = nn.Parameter(torch.zeros(layers[0], n_exps), requires_grad=True)
+
+        """这里就是给输入的东西加入噪声了""""
         self.w_noise = nn.Parameter(torch.zeros(layers[0], n_exps), requires_grad=True)
 
     def noisy_top_k_gating(self, x, train, noise_epsilon=1e-2):
@@ -57,9 +66,11 @@ class MoEAdaptorLayer(nn.Module):
         return gates
 
     def forward(self, x):
+        """门控决定权重，所以在这里计算权重"""
         gates = self.noisy_top_k_gating(x, self.training) # (B, n_E)
         expert_outputs = [self.experts[i](x).unsqueeze(-2) for i in range(self.n_exps)] # [(B, 1, D)]
         expert_outputs = torch.cat(expert_outputs, dim=-2)
+        """输出加权后的结果"""
         multiple_outputs = gates.unsqueeze(-1) * expert_outputs
         return multiple_outputs.sum(dim=-2)
     
