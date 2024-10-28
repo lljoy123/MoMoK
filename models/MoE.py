@@ -66,7 +66,7 @@ class MoEAdaptorLayer(nn.Module):
         return gates
 
     def forward(self, x):
-        """门控决定权重，所以在这里计算权重"""
+        """门控决定权重，所以在这里计算权重，现在这里只加了噪声"""
         gates = self.noisy_top_k_gating(x, self.training) # (B, n_E)
         expert_outputs = [self.experts[i](x).unsqueeze(-2) for i in range(self.n_exps)] # [(B, 1, D)]
         expert_outputs = torch.cat(expert_outputs, dim=-2)
